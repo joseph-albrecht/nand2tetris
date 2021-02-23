@@ -41,7 +41,6 @@ class Parser:
     def __init__(self, file_path):
         self.file_handle = open(file_path, "rt")
 
-
     def hasMoreCommands(self):
         return False
 
@@ -57,7 +56,9 @@ class Parser:
     def close(self):
         self.file_handle.close()
 
+
 class CodeWriter:
+
     def __init__(self, file_path):
         self.file_handle = open(file_path, "wt")
 
