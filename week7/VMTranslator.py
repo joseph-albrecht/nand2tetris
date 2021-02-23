@@ -17,6 +17,14 @@ from enum import Enum
 import sys
 import os
 
+register_addresses = {"SP"   : 0,
+                      "LCL"  : 1,
+                      "ARG"  : 2,
+                      "THIS" : 3,
+                      "THAT" : 4,
+                      "TEMP" : (5,12),
+                      "GP"   : (13,15),}
+
 class CommandType(Enum):
     ARITHMETIC =  1
     PUSH       =  2
