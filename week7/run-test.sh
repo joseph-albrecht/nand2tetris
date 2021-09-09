@@ -3,7 +3,7 @@ parser=$(pwd)/parser.js
 
 ## setup temp test directory
 test_contents=$1
-work_dir=`mktemp -d`
+work_dir=$(mktemp -d)
 cp -r $1 $work_dir
 cd $work_dir
 
