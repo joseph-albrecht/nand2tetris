@@ -6,7 +6,7 @@
 	"pointerTest": "./run-test.sh ./MemoryAccess/PointerTest",
 	"staticTest": "./run-test.sh ./MemoryAccess/StaticTest",
 	"simpleAdd": "./run-test.sh ./StackArithmetic/SimpleAdd",
-	"stackTest": "./run-test ./StackArithmetic/StackTest",
+	"stackTest": "./run-test.sh ./StackArithmetic/StackTest",
 	"test-all": "npm run basicTest; npm run pointerTest; npm run staticTest; npm run simpleAdd; npm run stackTest;"
     }
 }
