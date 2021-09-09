@@ -3,9 +3,9 @@ parser=$(pwd)/parser.js
 
 ## setup temp test directory
 test_contents=$1
-work_dir=$(mktemp -d)
-cp -r $1 $work_dir
-cd $work_dir
+temp_dir=$(mktemp -d)
+cp -r $test_contents $temp_dir
+cd $temp_dir
 
 ## parse .vm file and create a .asm file
 vm_file=$(find $(pwd) | grep 'vm$')
