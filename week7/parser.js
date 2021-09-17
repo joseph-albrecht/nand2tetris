@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 
 if (process.argv.length < 3) {
     console.log("You need to specify a filepath.");
@@ -6,6 +7,7 @@ if (process.argv.length < 3) {
 }
 
 var filePath = process.argv[2];
+var filename = path.parse(filePath).name;
 var vmScript = fs.readFileSync(filePath).toString();
 
 function parseInput(fileContents){
@@ -15,4 +17,23 @@ function parseInput(fileContents){
     return codeLines;
 }
 
-console.log(JSON.stringify(parseInput(vmScript)));
+function writeAsmFile(filename, fileContents){
+    fs.writeFileSync(filename, fileContents)
+}
+
+function printVm(contents){
+    console.log("VM SCRIPT");
+    contents.forEach((line) => {
+	console.log(line);
+    })
+}
+
+function parseVm(contents){
+    return contents.join(" ");
+}
+
+var vmCodeLines = parseInput(vmScript);
+printVm(vmCodeLines);
+
+var asmCodeLines = parseVm(vmCodeLines);
+writeAsmFile(filename+".asm", asmCodeLines);
