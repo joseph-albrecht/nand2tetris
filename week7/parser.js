@@ -8,32 +8,41 @@ if (process.argv.length < 3) {
 
 var filePath = process.argv[2];
 var filename = path.parse(filePath).name;
-var vmScript = fs.readFileSync(filePath).toString();
 
-function parseInput(fileContents){
-    let lines = fileContents.split("\r\n");
-    let nonCommentLines = lines.filter(line => ! line.startsWith("//"));
-    let codeLines = nonCommentLines.filter(line => ! /^[ \t]*$/.test(line));
-    return codeLines;
-}
+class Parser{
+    constructor(filePath){
+	this.filePath = filePath;
+	this.parseInput()
+    }
 
-function parseVm(contents){
-    return contents.join(" ");
+    parseInput(){
+	let raw = fs.readFileSync(this.filePath).toString();
+	let lines = raw.split("\r\n");
+	let nonCommentLines = lines.filter(line => ! line.startsWith("//"));
+	let codeLines = nonCommentLines.filter(line => ! /^[ \t]*$/.test(line));
+	this.lines = codeLines;
+    }
+
+    parseVm(){
+	return this.lines.join(" ");
+    }
+
+    printVm(){
+	console.log("==== VM Script " + this.filename + " ====");
+	this.lines.forEach((line) => {
+	    console.log(line);
+	})
+	console.log("==== END VM Script " + this.filename + " ====");
+	console.log("");
+    }
+
 }
 
 function writeAsmFile(filename, fileContents){
     fs.writeFileSync(filename, fileContents)
 }
 
-function printVm(filename, contents){
-    console.log("==== VM Script " + filename + " ====");
-    contents.forEach((line) => {
-	console.log(line);
-    })
-}
+var parser = new Parser(filePath);
+parser.printVm();
 
-var vmCodeLines = parseInput(vmScript);
-printVm(filename, vmCodeLines);
-
-var asmCodeLines = parseVm(vmCodeLines);
-writeAsmFile(filename+".asm", asmCodeLines);
+writeAsmFile(filename+".asm", parser.parseVm());
