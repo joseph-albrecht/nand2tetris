@@ -25,15 +25,15 @@ function writeAsmFile(filename, fileContents){
     fs.writeFileSync(filename, fileContents)
 }
 
-function printVm(contents){
-    console.log("VM SCRIPT");
+function printVm(filename, contents){
+    console.log("==== VM Script " + filename + " ====");
     contents.forEach((line) => {
 	console.log(line);
     })
 }
 
 var vmCodeLines = parseInput(vmScript);
-printVm(vmCodeLines);
+printVm(filename, vmCodeLines);
 
 var asmCodeLines = parseVm(vmCodeLines);
 writeAsmFile(filename+".asm", asmCodeLines);
