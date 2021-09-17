@@ -17,6 +17,10 @@ function parseInput(fileContents){
     return codeLines;
 }
 
+function parseVm(contents){
+    return contents.join(" ");
+}
+
 function writeAsmFile(filename, fileContents){
     fs.writeFileSync(filename, fileContents)
 }
@@ -26,10 +30,6 @@ function printVm(contents){
     contents.forEach((line) => {
 	console.log(line);
     })
-}
-
-function parseVm(contents){
-    return contents.join(" ");
 }
 
 var vmCodeLines = parseInput(vmScript);
