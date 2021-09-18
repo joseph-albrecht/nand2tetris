@@ -1,5 +1,5 @@
 ## parser location
-parser=$(pwd)/parser.js
+parser=$(pwd)/VMTranslator.js
 
 ## setup temp test directory
 test_contents=$1
