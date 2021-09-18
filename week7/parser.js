@@ -7,12 +7,15 @@ if (process.argv.length < 3) {
 }
 
 var filePath = process.argv[2];
-var filename = path.parse(filePath).name;
 
 class Parser{
     constructor(filePath){
 	this.filePath = filePath;
-	this.parseInput()
+	this.filename = path.parse(filePath).name;
+	this.lines = null;
+	this.parseInput();
+	this.index = null;
+	this.commandType = null;
     }
 
     parseInput(){
@@ -27,15 +30,35 @@ class Parser{
 	return this.lines.join(" ");
     }
 
-    printVm(){
+    advance(){
+	if (this.index === null){
+	    this.index = 0;
+	} else {
+	    this.index = this.index + 1;
+	}
+	var currentLine = this.lines[this.index];
+	var lineTokens = currentLine.split(" ");
+	this.commandType = lineTokens[0];
+	this.arg1        = lineTokens[1];
+	this.arg2        = lineTokens[2];
+    }
+
+    hasMoreCommands(){
+	return (this.index || 0) + 1 <= this.lines.length - 1;
+    }
+
+    print(){
 	console.log("==== VM Script " + this.filename + " ====");
-	this.lines.forEach((line) => {
-	    console.log(line);
-	})
+	while (this.hasMoreCommands()){
+	    this.advance();
+	    var output = this.commandType;
+	    if (this.arg1 != null) output = output + " " + this.arg1;
+	    if (this.arg2 != null) output = output + " " + this.arg2;
+	    console.log(output);
+	}
 	console.log("==== END VM Script " + this.filename + " ====");
 	console.log("");
     }
-
 }
 
 function writeAsmFile(filename, fileContents){
@@ -43,6 +66,6 @@ function writeAsmFile(filename, fileContents){
 }
 
 var parser = new Parser(filePath);
-parser.printVm();
+parser.print();
 
-writeAsmFile(filename+".asm", parser.parseVm());
+//writeAsmFile(filename+".asm", parser.parseVm());
