@@ -2,6 +2,18 @@ import sys
 import os
 import re
 
+def list(list):
+    def get(self, index, default=None):
+        if index < len(self):
+            self[index]
+        else:
+            return default
+def get_default(array, index, default):
+    if index < len(array):
+        return array[index]
+    else:
+        return default
+
 class Parser():
     def __init__(self, relative_path):
         self.lines       = []
@@ -21,13 +33,13 @@ class Parser():
 
     def advance(self):
         self.index += 1
-        split_line= self.lines[self.index].split(" ")
-        self.commandType = split_line[0]
-        self.arg1        = split_line[1]
-        if len(split_line) > 2:
-            self.arg2    = split_line[2]
+        line = self.lines[self.index].split(" ")
+        self.commandType = line[0]
+        self.arg1        = line[1]
+        self.arg2        = line[2] if 2 < len(line) else None
 
     def hasMoreCommands(self):
         return self.index < len(self.lines)
 
 parser = Parser(sys.argv[1])
+parser.advance()
