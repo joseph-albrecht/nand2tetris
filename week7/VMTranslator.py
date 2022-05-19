@@ -2,17 +2,8 @@ import sys
 import os
 import re
 
-def list(list):
-    def get(self, index, default=None):
-        if index < len(self):
-            self[index]
-        else:
-            return default
-def get_default(array, index, default):
-    if index < len(array):
-        return array[index]
-    else:
-        return default
+def hasIndex(array, index):
+    return index < len(array)
 
 class Parser():
     def __init__(self, relative_path):
@@ -36,7 +27,7 @@ class Parser():
         line = self.lines[self.index].split(" ")
         self.commandType = line[0]
         self.arg1        = line[1]
-        self.arg2        = line[2] if 2 < len(line) else None
+        self.arg2        = line[2] if hasIndex(line, 2) else None
 
     def hasMoreCommands(self):
         return self.index < len(self.lines)
