@@ -9,9 +9,8 @@ class Parser():
     def __init__(self, relative_path):
         self.lines       = []
         self.path        = os.path.abspath(relative_path)
-        self.name        = os.path.basename(self.path)
+        self.name        = os.path.splitext(os.path.basename(self.path))[0] 
         self.index       = -1
-        self.parsing     = False
         self.commandType = 0
         self.arg1        = None
         self.arg2        = None
@@ -30,7 +29,16 @@ class Parser():
         self.arg2        = line[2] if hasIndex(line, 2) else None
 
     def hasMoreCommands(self):
-        return self.index < len(self.lines)
+        return self.index < len(self.lines) - 1
 
-parser = Parser(sys.argv[1])
-parser.advance()
+
+class CodeWriter():
+    def __init__(self, parser):
+        self.parser = parser
+
+    def write(self):
+        with open(self.parser.name + ".asm" ,'w') as file:
+            file.write("")
+
+code_writer = CodeWriter(Parser(sys.argv[1]))
+code_writer.write()
