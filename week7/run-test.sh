@@ -1,16 +1,20 @@
-## parser location
-parser=$(pwd)/VMTranslator.js
+parser=$1
+emulator=$2
+test_contents=$3
 
 ## setup temp test directory
-test_contents=$1
 temp_dir=$(mktemp -d)
 cp -r $test_contents $temp_dir
 cd $temp_dir
+echo "performing test in temporary dir: "$temp_dir "\n"
 
 ## parse .vm file and create a .asm file
 vm_file=$(find $(pwd) | grep 'vm$')
-node $parser $vm_file
+$parser $vm_file
 
 ## test generated .asm file
 test_file=$(find $(pwd) | grep -v 'VME' | grep '.tst')
-~/home/dev/nand2tetris-materials/tools/CPUEmulator.sh $test_file
+asm_file=$(find $(pwd) | grep -v 'VME' | grep '.asm')
+echo "### TEST RESULTS for $test_contents"
+$emulator $test_file
+echo "### TEST END for $test_contents" "\n"
