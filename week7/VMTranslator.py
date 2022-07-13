@@ -37,6 +37,11 @@ class Parser():
             self.commandType = "C_PUSH"
             self.arg1 = line[1]
             self.arg2 = line[2]
+        elif line[0] in ["pop"]:
+            self.commandType = "C_POP"
+            self.arg1 = line[1]
+            self.arg2 = line[2]
+            
 
     def hasMoreCommands(self):
         return self.index + 1 < len(self.lines)
@@ -132,14 +137,69 @@ class CodeWriter():
         self.writeLines(f, op_to_asm[op])
         self.resultToStack(f)
 
-    def writePush(self, f, stack, address):
+    def writePush(self, f, pointer, offset):
+        pointer_to_address = {"stack": 0,
+                              "local": 1,
+                              "argument": 2,
+                              "this": 3,
+                              "that": 4,
+                              "temp": 5,
+                              "constant": -1}
         f.write(f"//push {self.parser.arg1} {self.parser.arg2}\n")
-        self.writeLines(f, [f"@{self.parser.arg2}",
-                            f"D=A",
-                            f"@0",
+        address = pointer_to_address[pointer]
+        if pointer == "constant":
+            self.writeLines(f, [f"@{self.parser.arg2}",
+                                f"D=A"])
+        elif pointer == "temp":
+            self.writeLines(f, [f"@{offset}",
+                                f"D=A",
+                                f"@{address}",
+                                f"A=D+A",
+                                f"D=M"])
+        else:
+            self.writeLines(f, [f"@{offset}",
+                                f"D=A",
+                                f"@{address}",
+                                f"A=M",
+                                f"A=D+A",
+                                f"D=M"])
+        self.writeLines(f, [f"@0",
                             f"A=M",
                             f"M=D",])
         self.advancePointer(f, "stack")
+
+    def writePop(self, f, pointer, offset):
+        pointer_to_address = {"stack": 0,
+                              "local": 1,
+                              "argument": 2,
+                              "this": 3,
+                              "that": 4,
+                              "temp": 5,
+                              "constant": -1}
+        f.write(f"//pop {self.parser.arg1} {self.parser.arg2}\n")
+        address = pointer_to_address[pointer]
+        if pointer == "temp":
+            self.writeLines(f, [f"@{offset}",
+                                f"D=A",
+                                f"@{address}",
+                                f"D=D+A",
+                                f"@location",
+                                f"M=D"])
+        else:
+            self.writeLines(f, [f"@{offset}",
+                                f"D=A",
+                                f"@{address}",
+                                f"A=M",
+                                f"D=D+A",
+                                f"@location",
+                                f"M=D"])
+        self.decrementPointer(f, "stack")
+        self.writeLines(f, [f"@0",
+                            f"A=M",
+                            f"D=M",])
+        self.writeLines(f, [f"@location",
+                            f"A=M",
+                            f"M=D",])
 
     def write(self):
         with open(f"{self.parser.name}.asm", 'w') as f:
@@ -150,7 +210,7 @@ class CodeWriter():
                 elif self.parser.commandType == "C_PUSH":
                     self.writePush(f, self.parser.arg1, self.parser.arg2)
                 elif self.parser.commandType == "C_POP":
-                    continue
+                    self.writePop(f, self.parser.arg1, self.parser.arg2)
                 elif self.parser.commandType == "C_LABEL":
                     continue
                 elif self.parser.commandType == "C_GOTO":
