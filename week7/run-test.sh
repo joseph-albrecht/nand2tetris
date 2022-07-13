@@ -19,5 +19,6 @@ echo "### ASM FILE ###"
 cat $asm_file
 echo "### ASM END ###\n"
 echo "### TEST RESULTS for $test_contents"
+echo "testing: " $asm_file
 $emulator $test_file
 echo "### TEST END for $test_contents" "\n"

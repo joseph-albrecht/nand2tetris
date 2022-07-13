@@ -29,7 +29,8 @@ class Parser():
         self.commandType = None
         self.arg1 = None
         self.arg2 = None
-        if line[0] in ["add"]:
+        
+        if line[0] in ["add", "sub", "and", "or", "neg", "eq", "lt", "gt", "not"]:
             self.commandType = "C_ARITHMETIC"
             self.arg1 = line[0]
         elif line[0] in ["push"]:
@@ -50,11 +51,17 @@ class Parser():
 class CodeWriter():
     def __init__(self, parser):
         self.parser = parser
+        self.currentLine = 0
 
     def writeLines(self, file, lines):
         for line in lines:
+            if not re.match(r"^//", line):
+                file.write(f"//{self.currentLine}" + os.linesep)
+
             file.write(line)
             file.write(os.linesep)
+            if not re.match(r"^//", line):
+                self.currentLine += 1
 
     def advancePointer(self, f, pointer):
         locations = {"stack": 0}
@@ -64,7 +71,7 @@ class CodeWriter():
 
     def decrementPointer(self, f, pointer):
         locations = {"stack": 0}
-        self.writeLines(f, [f"////advance {pointer} pointer",
+        self.writeLines(f, [f"////decrement {pointer} pointer",
                             f"@{locations[pointer]}",
                             f"M=M-1"])
 
@@ -90,20 +97,48 @@ class CodeWriter():
         self.advancePointer(f, "stack")
 
     def writeArithmetic(self, f, op):
-        op_to_asm = {"add": "D=D+A"}
-        f.write(f"//{self.parser.arg1}\n")
+        f.write(f"//arithmetic: {self.parser.arg1}\n")
         self.loadDFromStack(f)
-        self.loadAFromStack(f)
-        self.writeLines(f, [op_to_asm[op]])
+        if op not in ["neg", "not"]:
+            self.loadAFromStack(f)
+
+        op_to_asm = {"add": ["D=D+A"],
+                     "sub": ["D=A-D"],
+                     "and": ["D=D&A"],
+                     "or":  ["D=D|A"],
+                     "neg": ["D=-D"],
+                     "not": ["D=!D"],
+                     "eq":  ["D=A-D",
+                             f"@{self.currentLine+6}",
+                             f"D;JEQ",
+                             f"D=0",
+                             f"@{self.currentLine+7}",
+                             f"0;JMP",
+                             f"D=-1"],
+                     "lt":  ["D=A-D",
+                             f"@{self.currentLine+6}",
+                             f"D;JLT",
+                             f"D=0",
+                             f"@{self.currentLine+7}",
+                             f"0;JMP",
+                             f"D=-1"],
+                     "gt":  ["D=A-D",
+                             f"@{self.currentLine+6}",
+                             f"D;JGT",
+                             f"D=0",
+                             f"@{self.currentLine+7}",
+                             f"0;JMP",
+                             f"D=-1"]}
+        self.writeLines(f, op_to_asm[op])
         self.resultToStack(f)
 
     def writePush(self, f, stack, address):
         f.write(f"//push {self.parser.arg1} {self.parser.arg2}\n")
         self.writeLines(f, [f"@{self.parser.arg2}",
-                                       f"D=A",
-                                       f"@0",
-                                       f"A=M",
-                                       f"M=D",])
+                            f"D=A",
+                            f"@0",
+                            f"A=M",
+                            f"M=D",])
         self.advancePointer(f, "stack")
 
     def write(self):

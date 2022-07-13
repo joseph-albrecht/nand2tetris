@@ -21,5 +21,5 @@ if len(files) > 0:
     for file in files:
         run_test(file)
 else:
-    for file in ["basic", "pointer", "static", "simple", "static"]:
+    for file in ["basic", "pointer", "static", "simple", "stack"]:
         run_test(file)
