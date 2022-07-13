@@ -144,12 +144,16 @@ class CodeWriter():
                               "this": 3,
                               "that": 4,
                               "temp": 5,
-                              "constant": -1}
+                              "constant": -1,
+                              "pointer": -1}
         f.write(f"//push {self.parser.arg1} {self.parser.arg2}\n")
         address = pointer_to_address[pointer]
         if pointer == "constant":
             self.writeLines(f, [f"@{self.parser.arg2}",
                                 f"D=A"])
+        elif pointer == "pointer":
+            self.writeLines(f, [f"@{3+int(offset)}",
+                                f"D=M"])
         elif pointer == "temp":
             self.writeLines(f, [f"@{offset}",
                                 f"D=A",
@@ -175,10 +179,16 @@ class CodeWriter():
                               "this": 3,
                               "that": 4,
                               "temp": 5,
+                              "pointer": -1,
                               "constant": -1}
         f.write(f"//pop {self.parser.arg1} {self.parser.arg2}\n")
         address = pointer_to_address[pointer]
-        if pointer == "temp":
+        if pointer == "pointer":
+            self.writeLines(f, [f"@{3+int(offset)}",
+                                f"D=A",
+                                f"@location",
+                                f"M=D"])
+        elif pointer == "temp":
             self.writeLines(f, [f"@{offset}",
                                 f"D=A",
                                 f"@{address}",
