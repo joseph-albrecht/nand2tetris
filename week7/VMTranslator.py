@@ -144,6 +144,7 @@ class CodeWriter():
                               "this": 3,
                               "that": 4,
                               "temp": 5,
+                              "static": -1,
                               "constant": -1,
                               "pointer": -1}
         f.write(f"//push {self.parser.arg1} {self.parser.arg2}\n")
@@ -153,6 +154,9 @@ class CodeWriter():
                                 f"D=A"])
         elif pointer == "pointer":
             self.writeLines(f, [f"@{3+int(offset)}",
+                                f"D=M"])
+        elif pointer == "static":
+            self.writeLines(f, [f"@{self.parser.name+offset}",
                                 f"D=M"])
         elif pointer == "temp":
             self.writeLines(f, [f"@{offset}",
@@ -179,6 +183,7 @@ class CodeWriter():
                               "this": 3,
                               "that": 4,
                               "temp": 5,
+                              "static": -1,
                               "pointer": -1,
                               "constant": -1}
         f.write(f"//pop {self.parser.arg1} {self.parser.arg2}\n")
@@ -186,14 +191,19 @@ class CodeWriter():
         if pointer == "pointer":
             self.writeLines(f, [f"@{3+int(offset)}",
                                 f"D=A",
-                                f"@location",
+                                f"@13",
+                                f"M=D"])
+        elif pointer == "static":
+            self.writeLines(f, [f"@{self.parser.name+offset}",
+                                f"D=A",
+                                f"@13",
                                 f"M=D"])
         elif pointer == "temp":
             self.writeLines(f, [f"@{offset}",
                                 f"D=A",
                                 f"@{address}",
                                 f"D=D+A",
-                                f"@location",
+                                f"@13",
                                 f"M=D"])
         else:
             self.writeLines(f, [f"@{offset}",
@@ -201,13 +211,13 @@ class CodeWriter():
                                 f"@{address}",
                                 f"A=M",
                                 f"D=D+A",
-                                f"@location",
+                                f"@13",
                                 f"M=D"])
         self.decrementPointer(f, "stack")
         self.writeLines(f, [f"@0",
                             f"A=M",
                             f"D=M",])
-        self.writeLines(f, [f"@location",
+        self.writeLines(f, [f"@13",
                             f"A=M",
                             f"M=D",])
 
