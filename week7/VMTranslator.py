@@ -6,7 +6,7 @@ class Parser():
     def __init__(self, relative_path):
         self.lines       = []
         self.path        = os.path.abspath(relative_path)
-        self.name        = os.path.splitext(os.path.basename(self.path))[0] 
+        self.name        = os.path.splitext(os.path.basename(self.path))[0]
         self.index       = -1
         self.commandType = None
         self.arg1        = None
@@ -29,7 +29,7 @@ class Parser():
         self.commandType = None
         self.arg1 = None
         self.arg2 = None
-        
+
         if line[0] in ["add", "sub", "and", "or", "neg", "eq", "lt", "gt", "not"]:
             self.commandType = "C_ARITHMETIC"
             self.arg1 = line[0]
@@ -41,7 +41,7 @@ class Parser():
             self.commandType = "C_POP"
             self.arg1 = line[1]
             self.arg2 = line[2]
-            
+
 
     def hasMoreCommands(self):
         return self.index + 1 < len(self.lines)
