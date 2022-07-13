@@ -89,24 +89,31 @@ class CodeWriter():
                             f"M=D"])
         self.advancePointer(f, "stack")
 
+    def writeArithmetic(self, f, op):
+        op_to_asm = {"add": "D=D+A"}
+        f.write(f"//{self.parser.arg1}\n")
+        self.loadDFromStack(f)
+        self.loadAFromStack(f)
+        self.writeLines(f, [op_to_asm[op]])
+        self.resultToStack(f)
+
+    def writePush(self, f, stack, address):
+        f.write(f"//push {self.parser.arg1} {self.parser.arg2}\n")
+        self.writeLines(f, [f"@{self.parser.arg2}",
+                                       f"D=A",
+                                       f"@0",
+                                       f"A=M",
+                                       f"M=D",])
+        self.advancePointer(f, "stack")
+
     def write(self):
         with open(f"{self.parser.name}.asm", 'w') as f:
             while self.parser.hasMoreCommands():
                 self.parser.advance()
                 if self.parser.commandType == "C_ARITHMETIC":
-                    f.write(f"//{self.parser.arg1}\n")
-                    self.loadDFromStack(f)
-                    self.loadAFromStack(f)
-                    self.writeLines(f, [f"D=D+A"])
-                    self.resultToStack(f)
+                    self.writeArithmetic(f, self.parser.arg1)
                 elif self.parser.commandType == "C_PUSH":
-                    f.write(f"//push {self.parser.arg1} {self.parser.arg2}\n")
-                    self.writeLines(f, [f"@{self.parser.arg2}",
-                                        f"D=A",
-                                        f"@0",
-                                        f"A=M",
-                                        f"M=D",])
-                    self.advancePointer(f, "stack")
+                    self.writePush(f, self.parser.arg1, self.parser.arg2)
                 elif self.parser.commandType == "C_POP":
                     continue
                 elif self.parser.commandType == "C_LABEL":
