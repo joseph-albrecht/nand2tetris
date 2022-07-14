@@ -6,7 +6,6 @@ class Parser():
     def __init__(self, relative_path):
         self.lines       = []
         self.path        = os.path.abspath(relative_path)
-        self.name        = os.path.splitext(os.path.basename(self.path))[0]
         self.index       = -1
         self.commandType = None
         self.arg1        = None
@@ -68,8 +67,9 @@ class Parser():
 
 
 class CodeWriter():
-    def __init__(self, parser):
-        self.parser = parser
+    def __init__(self, path):
+        self.path        = path
+        self.parser      = None
         self.currentLine = 0
 
     def writeLines(self, file, lines):
@@ -316,33 +316,42 @@ class CodeWriter():
         self.writeLines(f, [f"@15",
                             f"A=M",
                             f"0;JMP"])
-
         
     def write(self):
-        with open(f"{self.parser.name}.asm", 'w') as f:
-            while self.parser.hasMoreCommands():
-                self.parser.advance()
-                if self.parser.commandType == "C_ARITHMETIC":
-                    self.writeArithmetic(f, self.parser.arg1)
-                elif self.parser.commandType == "C_PUSH":
-                    self.writePush(f, self.parser.arg1, self.parser.arg2)
-                elif self.parser.commandType == "C_POP":
-                    self.writePop(f, self.parser.arg1, self.parser.arg2)
-                elif self.parser.commandType == "C_LABEL":
-                    self.writeLabel(f, self.parser.arg1)
-                elif self.parser.commandType == "C_IF":
-                    self.writeIf(f, self.parser.arg1)
-                elif self.parser.commandType == "C_GOTO":
-                    self.writeGoto(f, self.parser.arg1)
-                elif self.parser.commandType == "C_FUNCTION":
-                    self.writeFunction(f, self.parser.arg1, self.parser.arg2)
-                elif self.parser.commandType == "C_RETURN":
-                    self.writeReturn(f)
-                elif self.parser.commandType == "C_CALL":
-                    continue
-                else:
-                    print(f"{self.parser.commandType} is not a valid command")
-                    break
+        if os.path.isfile(self.path):
+            files = [self.path]
+        else:
+            files = [file for file in os.listdir(self.path) if re.match(r"\.vm$", file)]
 
-code_writer = CodeWriter(Parser(sys.argv[1]))
+        name = os.path.splitext(self.path)[0]
+
+        with open(f"{name}.asm", 'w') as f:
+            for file in files:
+                self.parser = Parser(file)
+                while self.parser.hasMoreCommands():
+                    self.parser.advance()
+                    if self.parser.commandType == "C_ARITHMETIC":
+                        self.writeArithmetic(f, self.parser.arg1)
+                    elif self.parser.commandType == "C_PUSH":
+                        self.writePush(f, self.parser.arg1, self.parser.arg2)
+                    elif self.parser.commandType == "C_POP":
+                        self.writePop(f, self.parser.arg1, self.parser.arg2)
+                    elif self.parser.commandType == "C_LABEL":
+                        self.writeLabel(f, self.parser.arg1)
+                    elif self.parser.commandType == "C_IF":
+                        self.writeIf(f, self.parser.arg1)
+                    elif self.parser.commandType == "C_GOTO":
+                        self.writeGoto(f, self.parser.arg1)
+                    elif self.parser.commandType == "C_FUNCTION":
+                        self.writeFunction(f, self.parser.arg1, self.parser.arg2)
+                    elif self.parser.commandType == "C_RETURN":
+                        self.writeReturn(f)
+                    elif self.parser.commandType == "C_CALL":
+                        continue
+                    else:
+                        print(f"{self.parser.commandType} is not a valid command")
+                        break
+
+code_writer = CodeWriter(sys.argv[1])
 code_writer.write()
+
