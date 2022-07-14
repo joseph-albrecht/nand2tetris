@@ -50,6 +50,12 @@ class Parser():
         elif line[0] == "goto":
             self.commandType = "C_GOTO"
             self.arg1        = line[1]
+        elif line[0] == "function":
+            self.commandType = "C_FUNCTION"
+            self.arg1        = line[1]
+            self.arg2        = line[2]
+        elif line[0] == "return":
+            self.commandType = "C_RETURN"
 
     def hasMoreCommands(self):
         return self.index + 1 < len(self.lines)
@@ -244,6 +250,74 @@ class CodeWriter():
                             f"@{label}",
                             f"0;JMP"])
 
+    def writeFunction(self, f, label, args):
+        self.writeLines(f, ["//make function",
+                            f"({label})",
+                            f"@0",
+                            f"D=M",
+                            f"@1",
+                            f"M=D"])
+        for i in range(int(args)):
+            self.advancePointer(f, "stack")
+            
+    def writeReturn(self, f):
+        
+        self.loadDFromStack(f)
+        self.writeLines(f, [f"@13", # save return value
+                            f"M=D",
+                            f"@2",
+                            f"D=M",
+                            f"@14",
+                            f"M=D",
+                            f"@1",   #move SP to LCL
+                            f"D=M",
+                            f"@0",
+                            f"M=D"])
+        # reset that
+        self.loadDFromStack(f)
+        self.writeLines(f, [f"@4",
+                            f"M=D"])
+        #reset this
+        self.loadDFromStack(f)
+        self.writeLines(f, [f"@3",
+                            f"M=D"])
+        #reset arg
+        self.loadDFromStack(f)
+        self.writeLines(f, [f"@2",
+                            f"M=D"])
+        #reset lcl
+        self.loadDFromStack(f)
+        self.writeLines(f, [f"@1",
+                            f"M=D"])
+
+        #save return address
+        self.loadDFromStack(f)
+        self.writeLines(f, [f"//save return address",
+                            f"@15",
+                            f"M=D"])
+
+        #move SP to argument section
+        self.writeLines(f, [f"@14",
+                            f"D=M",
+                            f"@0",
+                            f"M=D"])
+
+        #push return value to stack
+        self.writeLines(f, [f"//push return value to stack",
+                            f"@13",
+                            f"D=M",
+                            f"@0",
+                            f"A=M",
+                            f"M=D"])
+
+        self.advancePointer(f, "stack")
+
+        #goto return address
+        self.writeLines(f, [f"@15",
+                            f"A=M",
+                            f"0;JMP"])
+
+        
     def write(self):
         with open(f"{self.parser.name}.asm", 'w') as f:
             while self.parser.hasMoreCommands():
@@ -260,8 +334,10 @@ class CodeWriter():
                     self.writeIf(f, self.parser.arg1)
                 elif self.parser.commandType == "C_GOTO":
                     self.writeGoto(f, self.parser.arg1)
+                elif self.parser.commandType == "C_FUNCTION":
+                    self.writeFunction(f, self.parser.arg1, self.parser.arg2)
                 elif self.parser.commandType == "C_RETURN":
-                    continue
+                    self.writeReturn(f)
                 elif self.parser.commandType == "C_CALL":
                     continue
                 else:
