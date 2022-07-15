@@ -277,7 +277,9 @@ class CodeWriter():
                             f"@1",
                             f"M=D"])
         for i in range(int(args)):
-            self.advancePointer(f, "stack")
+            self.writeLines(f, [f"@0",
+                                f"D=A"])
+            self.writeDtoStack(f)
             
     def writeReturn(self, f):
         self.writeLines(f, ["//write return code"])

@@ -7,7 +7,7 @@ def run_test(file):
     test_paths = {"fib-el":       "./FunctionCalls/FibonacciElement",
                   "nested":       "./FunctionCalls/NestedCall",
                   "simple":       "./FunctionCalls/SimpleFunction/",
-                  "statics":      "./FunctionCalls/StaticsTest/",
+                  "statics":      "./FunctionCalls/StaticsTest",
                   "fib-series":   "./ProgramFlow/FibonacciSeries/",
                   "loop":         "./ProgramFlow/BasicLoop/"}
     emulator = "/Users/joey/Documents/nand2tetris/tools/CPUEmulator.sh"
