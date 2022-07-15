@@ -4,8 +4,8 @@ import os
 
 def run_test(file):
     parser_command = "python3 " + os.path.abspath("./VMTranslator.py")
-    test_paths = {"fib-el":       "./FunctionCalls/FibonacciElement/",
-                  "nested":       "./FunctionCalls/NestedCall/",
+    test_paths = {"fib-el":       "./FunctionCalls/FibonacciElement",
+                  "nested":       "./FunctionCalls/NestedCall",
                   "simple":       "./FunctionCalls/SimpleFunction/",
                   "statics":      "./FunctionCalls/StaticsTest/",
                   "fib-series":   "./ProgramFlow/FibonacciSeries/",
@@ -14,7 +14,10 @@ def run_test(file):
     if file not in test_paths:
         print(f"this is not a test: {file}")
         return
-    os.system(f"./run-test.sh '{parser_command}' {emulator} {test_paths[file]}"),
+    if file in ["fib-series", "loop", "simple"]:
+        os.system(f"./run-test-file.sh '{parser_command}' {emulator} {test_paths[file]}")
+    else:
+        os.system(f"./run-test-dir.sh '{parser_command}' {emulator} {test_paths[file]}")
 
 files = sys.argv[1:]
 

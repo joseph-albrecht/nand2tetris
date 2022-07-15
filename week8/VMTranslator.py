@@ -6,6 +6,8 @@ class Parser():
     def __init__(self, relative_path):
         self.lines       = []
         self.path        = os.path.abspath(relative_path)
+        self.name        = os.path.splitext(os.path.basename(self.path))[0]
+
         self.index       = -1
         self.commandType = None
         self.arg1        = None
@@ -55,6 +57,10 @@ class Parser():
             self.arg2        = line[2]
         elif line[0] == "return":
             self.commandType = "C_RETURN"
+        elif line[0] == "call":
+            self.commandType = "C_CALL"
+            self.arg1        = line[1]
+            self.arg2        = line[2]
 
     def hasMoreCommands(self):
         return self.index + 1 < len(self.lines)
@@ -71,6 +77,12 @@ class CodeWriter():
         self.path        = path
         self.parser      = None
         self.currentLine = 0
+        self.symbol_count = 1
+
+    def makeSymbol(self):
+        symbol = str(self.symbol_count)
+        self.symbol_count += 1
+        return symbol
 
     def writeLines(self, file, lines):
         for line in lines:
@@ -120,7 +132,8 @@ class CodeWriter():
         self.loadDFromStack(f)
         if op not in ["neg", "not"]:
             self.loadAFromStack(f)
-
+        if_true = "if_true" + self.makeSymbol()
+        if_false = "if_false" + self.makeSymbol()
         op_to_asm = {"add": ["D=D+A"],
                      "sub": ["D=A-D"],
                      "and": ["D=D&A"],
@@ -128,26 +141,32 @@ class CodeWriter():
                      "neg": ["D=-D"],
                      "not": ["D=!D"],
                      "eq":  ["D=A-D",
-                             f"@{self.currentLine+6}",
+                             f"@{if_true}",
                              f"D;JEQ",
                              f"D=0",
-                             f"@{self.currentLine+7}",
+                             f"@{if_false}",
                              f"0;JMP",
-                             f"D=-1"],
+                             f"({if_true})",
+                             f"D=-1",
+                             f"({if_false})"],
                      "lt":  ["D=A-D",
-                             f"@{self.currentLine+6}",
+                             f"@{if_true}",
                              f"D;JLT",
                              f"D=0",
-                             f"@{self.currentLine+7}",
+                             f"@{if_false}",
                              f"0;JMP",
-                             f"D=-1"],
+                             f"({if_true})",
+                             f"D=-1",
+                             f"({if_false})"],
                      "gt":  ["D=A-D",
-                             f"@{self.currentLine+6}",
+                             f"@{if_true}",
                              f"D;JGT",
                              f"D=0",
-                             f"@{self.currentLine+7}",
+                             f"@{if_false}",
                              f"0;JMP",
-                             f"D=-1"]}
+                             f"({if_true})",
+                             f"D=-1",
+                             f"({if_false})"]}
         self.writeLines(f, op_to_asm[op])
         self.resultToStack(f)
 
@@ -161,10 +180,10 @@ class CodeWriter():
                               "static": -1,
                               "constant": -1,
                               "pointer": -1}
-        f.write(f"//push {self.parser.arg1} {self.parser.arg2}\n")
+        f.write(f"//push {pointer} {offset}\n")
         address = pointer_to_address[pointer]
         if pointer == "constant":
-            self.writeLines(f, [f"@{self.parser.arg2}",
+            self.writeLines(f, [f"@{offset}",
                                 f"D=A"])
         elif pointer == "pointer":
             self.writeLines(f, [f"@{3+int(offset)}",
@@ -243,7 +262,7 @@ class CodeWriter():
         self.loadDFromStack(f)
         self.writeLines(f, [f"//goto label {label}",
                             f"@{label}",
-                            f"D+1;JNE"])
+                            f"D;JNE"])
 
     def writeGoto(self, f, label):
         self.writeLines(f, [f"//goto label {label}",
@@ -261,7 +280,7 @@ class CodeWriter():
             self.advancePointer(f, "stack")
             
     def writeReturn(self, f):
-        
+        self.writeLines(f, ["//write return code"])
         self.loadDFromStack(f)
         self.writeLines(f, [f"@13", # save return value
                             f"M=D",
@@ -316,16 +335,87 @@ class CodeWriter():
         self.writeLines(f, [f"@15",
                             f"A=M",
                             f"0;JMP"])
+
+    def writePointerToStack(self, f, pointer):
+        pointer_to_address = {"stack": 0,
+                              "local": 1,
+                              "argument": 2,
+                              "this": 3,
+                              "that": 4,
+                              "temp": 5,
+                              "static": -1,
+                              "pointer": -1,
+                              "constant": -1}
+        self.writeLines(f, [f"@{pointer_to_address[pointer]}",
+                            f"D=M"])
+        self.writeDtoStack(f)
+
+    def writeDtoStack(self, f):
+        self.writeLines(f, [f"@0",
+                            f"A=M",
+                            f"M=D"])
+        self.advancePointer(f, "stack")
         
+    def writeChangePointer(self, f, pointer, val):
+        self.writeLines(f, [f"// write {pointer}"])
+        pointer_to_address = {"stack": 0,
+                              "local": 1,
+                              "argument": 2,
+                              "this": 3,
+                              "that": 4,
+                              "temp": 5,
+                              "static": -1,
+                              "pointer": -1,
+                              "constant": -1}
+        self.writeLines(f, [f"@{val}",
+                            f"D=A",
+                            f"@{pointer_to_address[pointer]}",
+                            f"M=D"])
+        
+        
+    def writeCall(self, f, function, args):
+        symbol = "return" + self.makeSymbol()
+        self.writeLines(f, [f"// call {function}"])
+        self.writeLines(f, ["@0",
+                            "D=M",
+                            "@13",
+                            "M=D"])
+        self.writeLines(f, [f"@{symbol}",
+                            f"D=A"])
+        self.writeDtoStack(f)
+        self.writePointerToStack(f, "local")
+        self.writePointerToStack(f, "argument")
+        self.writePointerToStack(f, "this")
+        self.writePointerToStack(f, "that")
+        self.writeLines(f, [f"@{args}",
+                            f"D=A",
+                            f"@13",
+                            f"A=M",
+                            f"D=A-D",
+                            f"@2",
+                            f"M=D"])
+        self.writeGoto(f, function)
+        self.writeLines(f, [f"({symbol})"])
+        self.writeLines(f, ["// return from {function}"])
+
     def write(self):
+        name = os.path.splitext(self.path)[0]
         if os.path.isfile(self.path):
             files = [self.path]
+            outfile = f"{name}.asm"
         else:
-            files = [file for file in os.listdir(self.path) if re.match(r"\.vm$", file)]
+            files = [os.path.join(name, file) for file in os.listdir(self.path) if re.match(r".*vm$", file)]
+            outfile = f"{name}/{name}.asm"
 
-        name = os.path.splitext(self.path)[0]
 
-        with open(f"{name}.asm", 'w') as f:
+        with open(outfile, 'w') as f:
+            ## remove at the end!!
+            if len(files) > 1:
+                self.writeLines(f, [f"@256",
+                                    f"D=A",
+                                    f"@0",
+                                    f"M=D"])
+                self.writeCall(f, "Sys.init", 0)
             for file in files:
                 self.parser = Parser(file)
                 while self.parser.hasMoreCommands():
@@ -347,7 +437,7 @@ class CodeWriter():
                     elif self.parser.commandType == "C_RETURN":
                         self.writeReturn(f)
                     elif self.parser.commandType == "C_CALL":
-                        continue
+                        self.writeCall(f, self.parser.arg1, self.parser.arg2)
                     else:
                         print(f"{self.parser.commandType} is not a valid command")
                         break
