@@ -58,8 +58,7 @@ class JackTokenizer():
                 token, cursor = self.advanceCursor(cursor)
                 return token, cursor
             elif in_block_comment:
-                cursor += 1
-                continue
+                pass
             elif token and c in self.symbols:
                 break
             elif token in self.symbols:
@@ -83,6 +82,10 @@ class JackTokenizer():
         token, _ = self.advanceCursor(self.cursor)
         return token is not None
 
+    def peek(self):
+        token, _ = self.advanceCursor(self.cursor)
+        return token
+
     def tokenType(self):
         if self.token in self.keywords:
             return "keyword"
@@ -98,9 +101,13 @@ class JackTokenizer():
             print(f"unknown token: {self.token}")
 
     def keyword(self):
+        if not self.tokenType() == "keyword":
+            print(f"{self.name} {self.token} is not a keyword!")
         return self.token
 
     def symbol(self):
+        if not self.tokenType() == "symbol":
+            print(f"{self.name} {self.token} is not a symbol!")
         symbol_to_xml = {"<": "&lt;",
                          ">": "&gt;",
                          "\"": "&quot;",
@@ -111,41 +118,370 @@ class JackTokenizer():
             return self.token
 
     def identifier(self):
+        if not self.tokenType() == "identifier":
+            print(f"{self.name} {self.token} is not a identifier!")
         return self.token
 
     def intVal(self):
+        if not self.tokenType() == "integerConstant":
+            print(f"{self.name} {self.token} is not an integerConstant!")
         return self.token
 
     def stringVal(self):
+        if not self.tokenType() == "stringConstant":
+            print(f"{self.name} {self.token} is not a stringConstant!")
         return self.token[1:-1]
 
-compilation_target = sys.argv[1]
 
-if os.path.isfile(compilation_target):
-    files = [sys.argv[1]]
-    folder  = os.path.dirname(os.path.abspath(sys.argv[1]))
-else:
-    folder  = os.path.abspath(sys.argv[1])
-    files = [os.path.join(folder, f)
-             for f in os.listdir(compilation_target)
-             if re.match(r".*\.jack$", f)]
+class CompilationEngine():
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+        self.stack = []
 
-for file in files:
-    tokenizer = JackTokenizer(file)
-    with open(f"{folder}/{tokenizer.name}T.xml", "w") as f:
-        f.write("<tokens>\n")
-        while tokenizer.hasMoreTokens():
-            tokenizer.advance()
-            val = ""
-            if tokenizer.tokenType() == "integerConstant":
-                val = tokenizer.intVal()
-            elif tokenizer.tokenType() == "stringConstant":
-                val = tokenizer.stringVal()
-            elif tokenizer.tokenType() == "symbol":
-                val = tokenizer.symbol()
-            elif tokenizer.tokenType() == "keyword":
-                val = tokenizer.keyword()
-            elif tokenizer.tokenType() == "identifier":
-                val = tokenizer.identifier()
-            f.write(f"<{tokenizer.tokenType()}> {val} </{tokenizer.tokenType()}>\n")
-        f.write("</tokens>\n")
+    def compile(self):
+        jack_path = self.tokenizer.path
+        vm_path   = f"{os.path.splitext(jack_path)[0]}T.xml"
+        with open(f"{vm_path}", "w") as out:
+            self.out = out
+            self.compileClass()
+
+    def tokenOut(self):
+        jack_path = self.tokenizer.path
+        vm_path   = f"{os.path.splitext(jack_path)[0]}T.xml"
+        with open(f"{vm_path}", "w") as f:
+            f.write("<tokens>\n")
+            while self.tokenizer.hasMoreTokens():
+                self.tokenizer.advance()
+                val = ""
+                if self.tokenizer.tokenType() == "integerConstant":
+                    val = self.tokenizer.intVal()
+                elif self.tokenizer.tokenType() == "stringConstant":
+                    val = self.tokenizer.stringVal()
+                elif self.tokenizer.tokenType() == "symbol":
+                    val = self.tokenizer.symbol()
+                elif self.tokenizer.tokenType() == "keyword":
+                    val = self.tokenizer.keyword()
+                elif self.tokenizer.tokenType() == "identifier":
+                    val = self.tokenizer.identifier()
+                f.write(f"<{self.tokenizer.tokenType()}> {val} </{self.tokenizer.tokenType()}>\n")
+            f.write("</tokens>\n")
+
+    def writeLine(self, line):
+        self.out.write(f"{line}\n")
+        self.stackTrace()
+        print(f"{line}\n")
+
+    def compileKeyword(self, val=None):
+        if val and \
+           ((type(val) == str and val != self.tokenizer.token) or \
+            (type(val) == list and self.tokenizer.token not in val)):
+            print(f"{self.tokenizer.name} {self.stack} {self.tokenizer.token} is not {val}")
+            exit()
+        # if self.tokenizer.tokenType() == "keyword":
+        self.writeLine(f"<keyword> {self.tokenizer.keyword()} </keyword>")
+        self.tokenizer.advance()
+        return True
+        # return False
+
+    def compileIdentifier(self, val=None):
+        if val and val != self.tokenizer.token:
+            print(f"{self.tokenizer.name} {self.stack} {self.tokenizer.token} is not {val}")
+            exit()
+        # if self.tokenizer.tokenType() == "identifier":
+        self.writeLine(f"<identifier> {self.tokenizer.identifier()} </identifier>")
+        self.tokenizer.advance()
+        return True
+        # return False
+
+    def compileSymbol(self, val=None):
+        if val and val != self.tokenizer.token:
+            print(f"{self.tokenizer.name} {self.stack} {self.tokenizer.token} is not {val}")
+            exit()
+        # if self.tokenizer.tokenType() == "symbol":
+        self.writeLine(f"<symbol> {self.tokenizer.symbol()} </symbol>")
+        self.tokenizer.advance()
+        return True
+        # return False
+
+    def compileStar(self, function):
+        found = function()
+        while found:
+            found = function()
+        return True
+
+    def compileList(self, function):
+        found = function()
+        while found:
+            if self.tokenizer.token == ",":
+                self.compileSymbol(",")
+                found = function()
+            else:
+                return True
+        return True
+
+    def compileClass(self):
+        self.enter("class")
+        self.writeLine("<class>")
+        # class declaration
+        self.tokenizer.advance()
+        self.compileKeyword("class")
+        self.compileIdentifier()
+        self.compileSymbol("{")
+        # class variable declarations
+        self.compileStar(self.compileClassVarDec)
+        # class method declarations
+        self.compileStar(self.compileSubroutine)
+        # close class declaration
+        self.compileSymbol("}")
+        self.writeLine("</class>")
+        self.exit("class")
+        return True
+
+    def compileClassVarDec(self):
+        self.enter("classVarDec")
+        if self.tokenizer.token in ["static", "field"]: # found a class variable!
+            self.writeLine("<classVarDec>")
+            self.compileKeyword(["static", "field"])
+            self.compileKeyword()
+            self.compileIdentifier()
+            while self.tokenizer.token == ",":
+                self.compileSymbol(",")
+                self.compileIdentifier()
+            self.compileSymbol(";")
+            self.writeLine("</classVarDec>")
+            self.exit()
+            return True
+        self.exit("classVarDec")
+        return False
+
+    def compileConstructor(self):
+        self.enter("constructor")
+        self.writeLine("<subroutineDec>")
+        self.compileKeyword("constructor")
+        self.compileIdentifier()
+        self.compileIdentifier("new")
+        self.compileSymbol("(")
+        self.compileList(self.compileParameter)
+        self.compileSymbol(")")
+        self.compileSubroutineBody()
+        self.writeLine("</subroutineDec>")
+        self.exit("constructor")
+
+        return True
+
+    def compileFunction(self):
+        self.enter("function")
+        self.writeLine("<subroutineDec>")
+        self.compileKeyword("function")
+        if self.tokenizer.token == "void":
+            self.compileKeyword("void")
+        else:
+            self.compileIdentifier()
+        self.compileIdentifier()
+        self.compileSymbol("(")
+        self.compileList(self.compileParameter)
+        self.compileSymbol(")")
+        self.compileSubroutineBody()
+        self.writeLine("</subroutineDec>")
+        self.exit("function")
+        return True
+
+    def compileMethod(self):
+        self.enter("method")
+        self.writeLine("<subroutineDec>")
+        self.compileKeyword("method")
+        if self.tokenizer.token == "void":
+            self.compileKeyword("void")
+        else:
+            self.compileIdentifier()
+        self.compileIdentifier()
+        self.compileSymbol("(")
+        self.compileList(self.compileParameter)
+        self.compileSymbol(")")
+        self.compileSubroutineBody()
+        self.writeLine("</subroutineDec>")
+        self.exit("method")
+        return True
+    
+    def compileSubroutine(self):
+        results = False
+        if self.tokenizer.token == "constructor":
+            results = self.compileConstructor()
+        elif self.tokenizer.token == "method":
+            results = self.compileMethod()
+        elif self.tokenizer.token == "function":
+            results = self.compileFunction()
+        return results
+
+    def compileParameter(self):
+        self.enter("parameter")
+        if self.tokenizer.token in ["int", "char", "boolean"]:
+            self.compileKeyword(["int", "char", "boolean"])
+            self.compileIdentifier()
+            self.exit("parameter")
+            return True
+        self.exit("parameter")
+        return False
+
+    def compileSubroutineBody(self):
+        self.enter("subroutineBody")
+        self.writeLine("<subroutineBody>")
+        self.compileSymbol("{")
+        self.compileStar(self.compileVarDec)
+        self.compileStar(self.compileStatement)
+        self.compileSymbol("}")
+        self.writeLine("</subroutineBody>")
+        self.exit("subroutineBody")
+        return True
+
+    def compileVarDec(self):
+        self.enter("varDec")
+        if self.tokenizer.token == "var": # found variable
+            self.writeLine("<varDec>")
+            self.compileKeyword("var")
+            if self.tokenizer.token in ["int", "char", "boolean"]:
+                self.compileKeyword(["int", "char", "boolean"])
+            else:
+                self.compileIdentifier()
+            self.compileIdentifier()
+            while self.tokenizer.token == ",":
+                self.compileSymbol(",")
+                self.compileIdentifier()
+            self.compileSymbol(";")
+            self.writeLine("</varDec>")
+            self.exit("varDec")
+            return True
+        self.exit("varDec")
+        return False
+
+    def compileStatement(self):
+        statements_to_functions = {"let":    self.compileLet,
+                                   "if":     self.compileIf,
+                                   "while":  self.compileWhile,
+                                   "do":     self.compileDo,
+                                   "return": self.compileReturn}
+        if self.tokenizer.token in statements_to_functions:
+            return statements_to_functions[self.tokenizer.token]()
+        return False
+
+    def compileLet(self):
+        self.enter("let")
+        self.compileKeyword("let")
+        self.compileExpression()
+        self.compileSymbol("=")
+        self.compileIdentifier()
+        self.compileSymbol(";");
+        self.exit("let")
+        return True
+
+    def compileIf(self):
+        self.enter("if")
+        self.compileKeyword("if")
+        self.compileSymbol("(")
+        self.compileExpression()
+        self.compileSymbol(")")
+        self.compileSymbol("{");
+        self.compileStar(self.compileStatement)
+        self.compileSymbol("}")
+        if self.tokenizer.token == "else":
+            self.compileKeyword("else")
+            self.compileSymbol("{");
+            self.compileStar(self.compileStatement)
+            self.compileSymbol("}")
+        self.exit("if")
+        return True
+
+    def compileWhile(self):
+        self.enter("while")
+        self.compileKeyword()
+        self.compileSymbol()
+        self.compileExpression()
+        self.compileSymbol()
+        self.compileSymbol()
+        self.compileStar(self.compileStatement)
+        self.compileSymbol()
+        self.exit("while")
+        return True
+
+    def compileDo(self):
+        self.enter("do")
+        self.compileKeyword("do")
+        self.compileSubroutineCall()
+        self.compileSymbol(";")
+        self.exit("do")
+        return True
+
+    def compileSubroutineCall(self):
+        self.enter("subroutineCall")
+        # check if identifer.function() or just function()
+        self.compileIdentifier()
+        if self.tokenizer.token == ".":
+            self.compileSymbol(".")
+            self.compileIdentifier()
+        #expression list
+        self.compileSymbol("(")
+        self.compileList(self.compileExpression)
+        self.compileSymbol(")")
+        self.exit("subroutineCall")
+        return True
+
+    def compileReturn(self):
+        self.enter("return")
+        self.writeLine("<return>")
+        self.compileKeyword("return")
+        self.compileExpression()
+        self.compileSymbol(";")
+        self.writeLine("</return>")
+        self.exit("return")
+        return True
+
+    def compileExpression(self):
+        self.enter("expression")
+        self.writeLine("<expression>")
+        if self.tokenizer.tokenType() in ["stringConstant", "integerConstant", "identifier"]:
+            self.compileIdentifier()
+            self.writeLine("</expression>")
+            self.exit()
+            return True
+        elif self.tokenizer.tokenType() == "keyword":
+            self.compileKeyword()
+            self.writeLine("</expression>")
+            self.exit()
+            return True
+        self.exit("expression")
+        self.writeLine("</expression>")
+        return False
+
+    def enter(self, name):
+        self.stack.append(name)
+        # self.stackTrace()
+
+    def exit(self, name=None):
+        if name and name != self.stack[-1]:
+            print(f"stack out of alignment!")
+        self.stack.pop()
+        # self.stackTrace()
+
+    def stackTrace(self):
+        print(f"file: {self.tokenizer.name} stack: {self.stack}")
+    
+
+
+class JackAnalyzer():
+    def __init__(self, target):
+        if os.path.isfile(target):
+            self.folder = os.path.dirname(os.path.abspath(target))
+            self.files  = [os.path.abspath(target)]
+        else:
+            self.folder = os.path.abspath(target)
+            self.files  = [os.path.join(self.folder, f)
+                           for f in os.listdir(target)
+                           if re.match(r".*\.jack$", f)]
+
+    def compile(self):
+        for file in self.files:
+            compiler = CompilationEngine(JackTokenizer(file))
+            compiler.compile()
+
+analyzer = JackAnalyzer(sys.argv[1])
+analyzer.compile()
