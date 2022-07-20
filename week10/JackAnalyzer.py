@@ -169,7 +169,8 @@ class CompilationEngine():
     def writeLine(self, line):
         self.out.write(f"{line}\n")
         self.stackTrace()
-        print(f"{line}\n")
+        print(f"{line}")
+
 
     def compileKeyword(self, val=None):
         if val and \
@@ -206,11 +207,11 @@ class CompilationEngine():
         # return False
 
     def compileIntegerConstant(self):
-        self.writeLine(f"<integerCostant> {self.tokenizer.intVal()} </integerConstant>")
+        self.writeLine(f"<integerConstant> {self.tokenizer.intVal()} </integerConstant>")
         self.tokenizer.advance()
 
     def compileStringConstant(self):
-        self.writeLine(f"<stringCostant> {self.tokenizer.stringVal()} </stringConstant>")
+        self.writeLine(f"<stringConstant> {self.tokenizer.stringVal()} </stringConstant>")
         self.tokenizer.advance()
         
     def compileStar(self, function):
@@ -274,7 +275,7 @@ class CompilationEngine():
         self.compileIdentifier()
         self.compileIdentifier("new")
         self.compileSymbol("(")
-        self.compileList(self.compileParameter)
+        self.compileParameterList()
         self.compileSymbol(")")
         self.compileSubroutineBody()
         self.writeLine("</subroutineDec>")
@@ -292,7 +293,7 @@ class CompilationEngine():
             self.compileIdentifier()
         self.compileIdentifier()
         self.compileSymbol("(")
-        self.compileList(self.compileParameter)
+        self.compileParameterList()
         self.compileSymbol(")")
         self.compileSubroutineBody()
         self.writeLine("</subroutineDec>")
@@ -309,7 +310,7 @@ class CompilationEngine():
             self.compileIdentifier()
         self.compileIdentifier()
         self.compileSymbol("(")
-        self.compileList(self.compileParameter)
+        self.compileParameterList()
         self.compileSymbol(")")
         self.compileSubroutineBody()
         self.writeLine("</subroutineDec>")
@@ -336,12 +337,20 @@ class CompilationEngine():
         self.exit("parameter")
         return False
 
+    def compileParameterList(self):
+        self.enter("parameterList")
+        self.writeLine("<parameterList>")
+        self.compileList(self.compileParameter)
+        self.writeLine("</parameterList>")
+        self.exit("parameterList")
+        return True
+
     def compileSubroutineBody(self):
         self.enter("subroutineBody")
         self.writeLine("<subroutineBody>")
         self.compileSymbol("{")
         self.compileStar(self.compileVarDec)
-        self.compileStar(self.compileStatement)
+        self.compileStatements()
         self.compileSymbol("}")
         self.writeLine("</subroutineBody>")
         self.exit("subroutineBody")
@@ -377,50 +386,68 @@ class CompilationEngine():
             return statements_to_functions[self.tokenizer.token]()
         return False
 
+    def compileStatements(self):
+        self.writeLine("<statements>")
+        self.compileStar(self.compileStatement)
+        self.writeLine("</statements>")
+
     def compileLet(self):
         self.enter("let")
+        self.writeLine("<letStatement>")
         self.compileKeyword("let")
-        self.compileExpression(with_equals=False)
+        self.compileIdentifier()
+        if self.tokenizer.token == "[":
+            self.compileSymbol("[")
+            self.compileExpression(with_equals=False)
+            self.compileSymbol("]")
+
         self.compileSymbol("=")
-        self.compileExpression(with_equals=False)
+        self.compileExpression()
         self.compileSymbol(";");
+        self.writeLine("</letStatement>")
         self.exit("let")
         return True
 
     def compileIf(self):
         self.enter("if")
+        self.writeLine("<ifStatement>")
         self.compileKeyword("if")
         self.compileSymbol("(")
         self.compileExpression()
         self.compileSymbol(")")
         self.compileSymbol("{");
-        self.compileStar(self.compileStatement)
+        self.compileStatements()
         self.compileSymbol("}")
         if self.tokenizer.token == "else":
             self.compileKeyword("else")
             self.compileSymbol("{");
-            self.compileStar(self.compileStatement)
+            self.compileStatements()
             self.compileSymbol("}")
+        self.writeLine("</ifStatement>")
         self.exit("if")
         return True
 
     def compileWhile(self):
         self.enter("while")
+        self.writeLine("<whileStatement>")
         self.compileKeyword()
         self.compileSymbol()
         self.compileExpression()
         self.compileSymbol()
         self.compileSymbol()
-        self.compileStar(self.compileStatement)
+        self.compileStatements()
         self.compileSymbol()
+        self.writeLine("</whileStatement>")
         self.exit("while")
         return True
 
     def compileDo(self):
         self.enter("do")
+        self.writeLine("<doStatement>")
         self.compileKeyword("do")
         self.compileSubroutineCall()
         self.compileSymbol(";")
+        self.writeLine("</doStatement>")
         self.exit("do")
         return True
 
@@ -433,34 +460,44 @@ class CompilationEngine():
             self.compileIdentifier()
         #expression list
         self.compileSymbol("(")
-        self.compileList(self.compileExpression)
+        self.compileExpressionList()
         self.compileSymbol(")")
         self.exit("subroutineCall")
         return True
 
     def compileReturn(self):
         self.enter("return")
-        self.writeLine("<return>")
+        self.writeLine("<returnStatement>")
         self.compileKeyword("return")
         self.compileExpression()
         self.compileSymbol(";")
-        self.writeLine("</return>")
+        self.writeLine("</returnStatement>")
         self.exit("return")
         return True
 
     def compileExpression(self, with_equals=True):
         self.enter("expression")
-        found = self.compileTerm()
-        ops = ["+", "-", "*", "/", "&", "|", "<", ">"] + (["="] if with_equals else [])
-        print(ops)
-        while self.tokenizer.token in ops:
-            self.compileSymbol(ops)
+        if self.termNext():
+            self.writeLine("<expression>")
             found = self.compileTerm()
+            ops = ["+", "-", "*", "/", "&", "|", "<", ">"] + (["="] if with_equals else [])
+            while self.tokenizer.token in ops:
+                self.compileSymbol(ops)
+                found = self.compileTerm()
+            self.writeLine("</expression>")
         self.exit("expression")
         return True
 
+    def compileExpressionList(self):
+        self.enter("expressionList")
+        self.writeLine("<expressionList>")
+        self.compileList(self.compileExpression)
+        self.writeLine("</expressionList>")
+        self.exit("expressionList")
+
     def compileTerm(self):
         self.enter("term")
+        self.writeLine("<term>")
         # integerConstant
         if self.tokenizer.tokenType() == "integerConstant":
             self.compileIntegerConstant()
@@ -489,7 +526,29 @@ class CompilationEngine():
             self.compileSymbol("]")
         elif self.tokenizer.tokenType() == "identifier":
             self.compileIdentifier()
+        self.writeLine("</term>")
         self.exit("term")
+
+    def termNext(self):
+        if self.tokenizer.tokenType() == "integerConstant":
+            return True
+        elif self.tokenizer.tokenType() == "stringConstant":
+            return True
+        elif self.tokenizer.token in ["true", "false", "null", "this"]:
+            return True
+        elif self.tokenizer.token in ["-", "~"]:
+            return True
+        elif self.tokenizer.token == "(":
+            return True
+        elif self.tokenizer.tokenType() == "identifier" and self.tokenizer.peek() in [".", "("]:
+            return True
+        elif self.tokenizer.tokenType() == "identifier" and self.tokenizer.peek() == "[":
+            return True
+        elif self.tokenizer.tokenType() == "identifier":
+            return True
+        else:
+            return False
+        
 
     def enter(self, name):
         self.stack.append(name)
