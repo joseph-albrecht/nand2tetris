@@ -194,7 +194,9 @@ class CompilationEngine():
         # return False
 
     def compileSymbol(self, val=None):
-        if val and val != self.tokenizer.token:
+        if val and \
+           ((type(val) == str and val != self.tokenizer.token) or \
+            (type(val) == list and self.tokenizer.token not in val)):
             print(f"{self.tokenizer.name} {self.stack} {self.tokenizer.token} is not {val}")
             exit()
         # if self.tokenizer.tokenType() == "symbol":
@@ -203,6 +205,14 @@ class CompilationEngine():
         return True
         # return False
 
+    def compileIntegerConstant(self):
+        self.writeLine(f"<integerCostant> {self.tokenizer.intVal()} </integerConstant>")
+        self.tokenizer.advance()
+
+    def compileStringConstant(self):
+        self.writeLine(f"<stringCostant> {self.tokenizer.stringVal()} </stringConstant>")
+        self.tokenizer.advance()
+        
     def compileStar(self, function):
         found = function()
         while found:
@@ -210,13 +220,16 @@ class CompilationEngine():
         return True
 
     def compileList(self, function):
+        self.enter("list")
         found = function()
         while found:
             if self.tokenizer.token == ",":
                 self.compileSymbol(",")
                 found = function()
             else:
-                return True
+                break
+
+        self.exit("list")
         return True
 
     def compileClass(self):
@@ -367,9 +380,9 @@ class CompilationEngine():
     def compileLet(self):
         self.enter("let")
         self.compileKeyword("let")
-        self.compileExpression()
+        self.compileExpression(with_equals=False)
         self.compileSymbol("=")
-        self.compileIdentifier()
+        self.compileExpression(with_equals=False)
         self.compileSymbol(";");
         self.exit("let")
         return True
@@ -435,32 +448,56 @@ class CompilationEngine():
         self.exit("return")
         return True
 
-    def compileExpression(self):
+    def compileExpression(self, with_equals=True):
         self.enter("expression")
-        self.writeLine("<expression>")
-        if self.tokenizer.tokenType() in ["stringConstant", "integerConstant", "identifier"]:
-            self.compileIdentifier()
-            self.writeLine("</expression>")
-            self.exit()
-            return True
-        elif self.tokenizer.tokenType() == "keyword":
-            self.compileKeyword()
-            self.writeLine("</expression>")
-            self.exit()
-            return True
+        found = self.compileTerm()
+        ops = ["+", "-", "*", "/", "&", "|", "<", ">"] + (["="] if with_equals else [])
+        print(ops)
+        while self.tokenizer.token in ops:
+            self.compileSymbol(ops)
+            found = self.compileTerm()
         self.exit("expression")
-        self.writeLine("</expression>")
-        return False
+        return True
+
+    def compileTerm(self):
+        self.enter("term")
+        # integerConstant
+        if self.tokenizer.tokenType() == "integerConstant":
+            self.compileIntegerConstant()
+        # stringConstant
+        elif self.tokenizer.tokenType() == "stringConstant":
+            self.compileStringConstant()
+        # keywordConstant
+        elif self.tokenizer.token in ["true", "false", "null", "this"]:
+            self.compileKeyword()
+        # '-'|'~' term
+        elif self.tokenizer.token in ["-", "~"]:
+            self.compileSymbol()
+            self.compileTerm()
+        # '(' expression ')'
+        elif self.tokenizer.token == "(":
+            self.compileSymbol("(")
+            self.compileExpression()
+            self.compileSymbol(")")
+        # subroutineCall
+        elif self.tokenizer.tokenType() == "identifier" and self.tokenizer.peek() in [".", "("]:
+            self.compileSubroutineCall()
+        elif self.tokenizer.tokenType() == "identifier" and self.tokenizer.peek() == "[":
+            self.compileIdentifier()
+            self.compileSymbol("[")
+            self.compileExpression(with_equals=False)
+            self.compileSymbol("]")
+        elif self.tokenizer.tokenType() == "identifier":
+            self.compileIdentifier()
+        self.exit("term")
 
     def enter(self, name):
         self.stack.append(name)
-        # self.stackTrace()
 
     def exit(self, name=None):
         if name and name != self.stack[-1]:
             print(f"stack out of alignment!")
         self.stack.pop()
-        # self.stackTrace()
 
     def stackTrace(self):
         print(f"file: {self.tokenizer.name} stack: {self.stack}")
